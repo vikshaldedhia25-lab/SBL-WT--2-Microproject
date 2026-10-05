@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuraBreathe Pro — Global Air Quality & Health Intelligence</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #04060b;
+    color: #f1f5f9;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  
+  /* Ambient Background Glow */
+  .ambient-glow {
+    position: fixed; width: 600px; height: 600px; border-radius: 50%;
+    filter: blur(140px); opacity: 0.15; z-index: -1;
+    transition: background 1s ease, transform 1s ease;
+    pointer-events: none;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+  }
+
+  /* Glass Cards */
+  .glass {
+    background: rgba(13, 19, 32, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  }
+  .glass-sub {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.08); opacity: 0.8; }
+  }
+  .pulse-ring { animation: pulseGlow 4s infinite ease-in-out; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+  
+  input:focus-visible, button:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const CITIES_DATA = {
+  "Mumbai": { country: "India", aqi: 112, pm25: 42, pm10: 75, no2: 32, o3: 24, temp: "31°C", humidity: "78%", wind: "14 km/h", status: "Sensitive Groups", advice: "Sensitive groups should limit prolonged outdoor exertion near heavy traffic areas." },
+  "Delhi": { country: "India", aqi: 245, pm25: 165, pm10: 230, no2: 68, o3: 45, temp: "34°C", humidity: "52%", wind: "8 km/h", status: "Hazardous", advice: "Air is critically polluted. Wear an N95 mask outdoors and seal windows." },
+  "London": { country: "United Kingdom", aqi: 34, pm25: 12, pm10: 20, no2: 22, o3: 35, temp: "16°C", humidity: "65%", wind: "19 km/h", status: "Good", advice: "Air quality is pristine. Excellent conditions for outdoor exercise." },
+  "New York": { country: "United States", aqi: 48, pm25: 18, pm10: 30, no2: 19, o3: 28, temp: "22°C", humidity: "55%", wind: "12 km/h", status: "Good", advice: "Clean conditions. Ideal for walking, running, and parks." },
+  "Tokyo": { country: "Japan", aqi: 28, pm25: 10, pm10: 18, no2: 15, o3: 25, temp: "20°C", humidity: "60%", wind: "10 km/h", status: "Good", advice: "Pristine urban atmosphere. Safe for all outdoor operations." },
+  "Paris": { country: "France", aqi: 55, pm25: 22, pm10: 40, no2: 29, o3: 30, temp: "19°C", humidity: "62%", wind: "15 km/h", status: "Moderate", advice: "Acceptable air quality. Unusually sensitive individuals should take care." },
+  "Sydney": { country: "Australia", aqi: 25, pm25: 8, pm10: 15, no2: 12, o3: 20, temp: "24°C", humidity: "50%", wind: "22 km/h", status: "Good", advice: "Coastal ocean breezes keep the metropolitan air exceptionally clean." },
+  "Beijing": { country: "China", aqi: 135, pm25: 85, pm10: 120, no2: 44, o3: 22, temp: "25°C", humidity: "45%", wind: "9 km/h", status: "Unhealthy", advice: "Air quality is impaired. Consider reducing outdoor physical exertion." }
+};
+
+const getCityData = (cityName) => {
+  const query = cityName.trim();
+  const matchedKey = Object.keys(CITIES_DATA).find(c => c.toLowerCase() === query.toLowerCase());
+  
+  if (matchedKey) return { name: matchedKey, ...CITIES_DATA[matchedKey] };
+
+  // Algorithmic generator for any custom city searched worldwide
+  let hash = 0;
+  for (let i = 0; i < query.length; i++) hash = query.charCodeAt(i) + ((hash << 5) - hash);
+  const seed = Math.abs(hash);
+  const aqi = 25 + (seed % 150);
+  
+  return {
+    name: query.charAt(0).toUpperCase() + query.slice(1),
+    country: "Global Station",
+    aqi,
+    pm25: Math.round(aqi * 0.45),
+    pm10: Math.round(aqi * 0.7),
+    no2: 15 + (seed % 35),
+    o3: 15 + (seed % 30),
+    temp: `${20 + (seed % 12)}°C`,
+    humidity: `${40 + (seed % 40)}%`,
+    wind: `${8 + (seed % 15)} km/h`,
+    status: aqi <= 50 ? "Good" : aqi <= 100 ? "Moderate" : aqi <= 150 ? "Sensitive Groups" : "Unhealthy",
+    advice: aqi <= 50 ? "Air quality is satisfactory and safe for everyone." : "Consider reducing strenuous outdoor activities."
+  };
+};
+
+const getTheme = (aqi) => {
+  if (aqi <= 50) return { color: "#10b981", bg: "rgba(16, 185, 129, 0.15)", label: "Good", icon: "🌱" };
+  if (aqi <= 100) return { color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", label: "Moderate", icon: "🌤️" };
+  if (aqi <= 150) return { color: "#f97316", bg: "rgba(249, 115, 22, 0.15)", label: "Sensitive Groups", icon: "⚠️️" };
+  if (aqi <= 200) return { color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)", label: "Unhealthy", icon: "😷" };
+  return { color: "#8b5cf6", bg: "rgba(139, 92, 246, 0.15)", label: "Hazardous", icon: "☣️" };
+};
+
+const App = () => {
+  const [cityName, setCityName] = useState("Mumbai");
+  const [searchInput, setSearchInput] = useState("Mumbai");
+  const [airData, setAirData] = useState(getCityData("Mumbai"));
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => {
+      setAirData(getCityData(cityName));
+      setLoading(false);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [cityName]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchInput.trim()) {
+      setCityName(searchInput.trim());
+    }
+  };
+
+  const theme = getTheme(airData.aqi);
+  
+  // 24-Hour Sparkline points
+  const trendPoints = [airData.aqi*0.8, airData.aqi*0.85, airData.aqi*0.9, airData.aqi*0.95, airData.aqi*0.88, airData.aqi*0.92, airData.aqi];
+  const minVal = Math.min(...trendPoints);
+  const maxVal = Math.max(...trendPoints, minVal + 10);
+  const sparkPath = trendPoints.map((val, idx) => {
+    const x = (idx / (trendPoints.length - 1)) * 320;
+    const y = 70 - ((val - minVal) / (maxVal - minVal || 1)) * 50;
+    return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  return (
+    <div className="min-h-screen flex flex-col justify-between p-4 sm:p-8">
+      {/* Dynamic Ambient Background Glow */}
+      <div className="ambient-glow" style={{ background: theme.color }}></div>
+
+      {/* Top Header Navigation */}
+      <header className="max-w-6xl w-full mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 py-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl glass flex items-center justify-center text-xl shadow-lg" style={{ border: `1px solid ${theme.color}50` }}>
+            🍃
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+              AuraBreathe <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-slate-300">PRO V2</span>
+            </h1>
+            <p className="text-xs text-slate-400 font-mono">GLOBAL ATMOSPHERIC INTELLIGENCE</p>
+          </div>
+        </div>
+
+        {/* Search Bar Form */}
+        <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto">
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search city or country..."
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none w-full sm:w-64"
+          />
+          <button type="submit" className="px-5 py-2.5 rounded-xl font-semibold text-xs tracking-wider uppercase transition-all shadow-lg whitespace-nowrap" style={{ background: theme.color, color: '#04060b' }}>
+            {loading ? "..." : "Explore"}
+          </button>
+        </form>
+      </header>
+
+      {/* Main Dashboard Container */}
+      <main className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 items-start">
+        
+        {/* Left Column: City Quick Selectors & Weather Widgets */}
+        <div className="flex flex-col gap-6 lg:col-span-1">
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4">
+            <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Featured World Cities</span>
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(CITIES_DATA).map(c => {
+                const isSelected = airData.name.toLowerCase() === c.toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    onClick={() => { setSearchInput(c); setCityName(c); }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                      isSelected 
+                        ? 'font-bold shadow-lg scale-105' 
+                        : 'glass-sub text-slate-300 hover:bg-white/10'
+                    }`}
+                    style={isSelected ? { background: theme.color, color: '#04060b', border: `1px solid ${theme.color}` } : {}}
+                  >
+                    {c} {isSelected && "•"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Meteorological Conditions */}
+          <div className="glass rounded-3xl p-6 flex flex-col gap-4">
+            <span className="text-xs font-mono uppercase tracking-widest text-slate-400">Atmospheric Conditions</span>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="glass-sub rounded-2xl p-4 text-center">
+                <span className="text-[10px] text-slate-400 font-mono block">TEMP</span>
+                <span className="text-base font-bold font-mono mt-1 block text-slate-100">{airData.temp}</span>
+              </div>
+              <div className="glass-sub rounded-2xl p-4 text-center">
+                <span className="text-[10px] text-slate-400 font-mono block">HUMIDITY</span>
+                <span className="text-base font-bold font-mono mt-1 block text-slate-100">{airData.humidity}</span>
+              </div>
+              <div className="glass-sub rounded-2xl p-4 text-center">
+                <span className="text-[10px] text-slate-400 font-mono block">WIND</span>
+                <span className="text-base font-bold font-mono mt-1 block text-slate-100">{airData.wind}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Center & Right Column: Hero Display & Detailed Pollutant Breakdowns */}
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          
+          {/* Main Hero Card */}
+          <div className="glass rounded-3xl p-8 flex flex-col sm:flex-row justify-between items-center relative overflow-hidden gap-6" style={{ border: `1px solid ${theme.color}40` }}>
+            <div className="absolute inset-0 pulse-ring rounded-full pointer-events-none" style={{ background: theme.bg, filter: 'blur(60px)' }}></div>
+            
+            <div className="flex flex-col gap-2 z-10 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="text-xs font-mono uppercase tracking-widest text-slate-400">{airData.country}</span>
+                <span className="text-xs">•</span>
+                <span className="text-xs font-mono text-slate-400">Live Station</span>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{airData.name}</h2>
+              <p className="text-xs text-slate-300 max-w-sm mt-2 leading-relaxed">
+                {airData.advice}
+              </p>
+            </div>
+
+            <div className="glass-sub rounded-3xl p-6 flex flex-col items-center justify-center z-10 min-w-[160px]" style={{ border: `1px solid ${theme.color}60` }}>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-mono mb-2" style={{ background: theme.bg, color: theme.color }}>
+                <span>{theme.icon}</span> {theme.label}
+              </div>
+              <span className="text-5xl font-extrabold font-mono" style={{ color: theme.color }}>
+                {airData.aqi}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono mt-1">AQI SCORE</span>
+            </div>
+          </div>
+
+          {/* 24-Hour Trend Graph Card */}
+          <div className="glass rounded-3xl p-6 flex flex-col gap-3">
+            <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
+              <span>24-HOUR AIR QUALITY TREND — {airData.name.toUpperCase()}</span>
+              <span style={{ color: theme.color }} className="font-bold">Real-Time Simulation</span>
+            </div>
+            <div className="h-20 w-full relative flex items-center justify-center mt-2">
+              <svg viewBox="0 0 320 70" className="w-full h-full overflow-visible">
+                <path d={sparkPath} fill="none" stroke={theme.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                {trendPoints.map((val, idx) => {
+                  const x = (idx / (trendPoints.length - 1)) * 320;
+                  const y = 70 - ((val - minVal) / (maxVal - minVal || 1)) * 50;
+                  return <circle key={idx} cx={x} cy={y} r="4" fill={theme.color} />;
+                })}
+              </svg>
+            </div>
+          </div>
+
+          {/* Pollutant Breakdown Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="glass rounded-2xl p-5 flex flex-col justify-between">
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
+                <span>Fine Particles (PM2.5)</span>
+                <span className="text-slate-200 font-bold">{airData.pm25} µg/m³</span>
+              </div>
+              <div className="w-full bg-white/5 h-2 rounded-full mt-4 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (airData.pm25 / 180) * 100)}%`, background: theme.color }}></div>
+              </div>
+            </div>
+
+            <div className="glass rounded-2xl p-5 flex flex-col justify-between">
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
+                <span>Coarse Dust (PM10)</span>
+                <span className="text-slate-200 font-bold">{airData.pm10} µg/m³</span>
+              </div>
+              <div className="w-full bg-white/5 h-2 rounded-full mt-4 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (airData.pm10 / 250) * 100)}%`, background: theme.color }}></div>
+              </div>
+            </div>
+
+            <div className="glass rounded-2xl p-5 flex flex-col justify-between">
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
+                <span>Nitrogen Dioxide ($NO_2$)</span>
+                <span className="text-slate-200 font-bold">{airData.no2} ppb</span>
+              </div>
+              <div className="w-full bg-white/5 h-2 rounded-full mt-4 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (airData.no2 / 90) * 100)}%`, background: theme.color }}></div>
+              </div>
+            </div>
+
+            <div className="glass rounded-2xl p-5 flex flex-col justify-between">
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
+                <span>Surface Ozone ($O_3$)</span>
+                <span className="text-slate-200 font-bold">{airData.o3} ppb</span>
+              </div>
+              <div className="w-full bg-white/5 h-2 rounded-full mt-4 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (airData.o3 / 100) * 100)}%`, background: theme.color }}></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+
+      {/* Footer */}
+      <footer className="max-w-6xl w-full mx-auto text-center py-6 text-xs text-slate-500 font-mono mt-8 border-t border-white/5">
+        AuraBreathe Global Intelligence Network · Supporting UN Sustainable Development Goals (SDG 3 & SDG 11)
+      </footer>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+</body>
+</html>
